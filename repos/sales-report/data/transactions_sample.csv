@@ -1,0 +1,9 @@
+date,category,product,amount,type
+2026-01-05,Tools,Hammer,25.00,sale
+2026-01-12,Kitchen,Blender,40.00,sale
+2026-02-03,Tools,Screwdriver,10.00,sale
+2026-02-20,Kitchen,Toaster,30.00,sale
+2026-03-01,Tools,Wrench,15.00,sale
+2026-03-15,Outdoor,Tent,120.00,sale
+2026-03-22,Kitchen,Blender,40.00,sale
+2026-04-02,Outdoor,Sleeping Bag,60.00,sale

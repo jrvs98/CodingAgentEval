@@ -1,0 +1,164 @@
+[
+  {
+    "id": "nc-01",
+    "repo": "notes-cli",
+    "type": "bug",
+    "title": "Search is case-sensitive",
+    "description": "Users report that `notes search` misses notes unless they type the exact casing. Searching for 'roadmap' should find a note titled 'Roadmap Q3'. Fix search so it's case-insensitive across both title and body, without changing its return type or breaking existing callers.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_01.py"
+  },
+  {
+    "id": "nc-02",
+    "repo": "notes-cli",
+    "type": "bug",
+    "title": "Duplicate note IDs after deleting a note",
+    "description": "A user deletes a note, then adds a new one, and the new note gets assigned an ID that's still in use by an existing note. IDs must stay unique for the lifetime of the store, even across deletions.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_02.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_02.py"
+  },
+  {
+    "id": "nc-03",
+    "repo": "notes-cli",
+    "type": "bug",
+    "title": "`list --sort date` doesn't actually sort by date",
+    "description": "`notes list --sort date` should order notes by created_at, and `notes list --sort title` should order them alphabetically by title. Right now the two are swapped. Fix the sorting so each option does what it says.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_03.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_03.py"
+  },
+  {
+    "id": "nc-04",
+    "repo": "notes-cli",
+    "type": "feature",
+    "title": "Filter notes by tag",
+    "description": "Add a `--tag` option to `notes list` (and a matching `tag` parameter on `storage.list_notes`) that restricts results to notes containing that tag. Notes with no matching tag should be excluded; omitting `--tag` should behave exactly as before.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_04.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_04.py"
+  },
+  {
+    "id": "nc-05",
+    "repo": "notes-cli",
+    "type": "feature",
+    "title": "Archive notes instead of deleting them",
+    "description": "Add `notes archive <id>` and `notes unarchive <id>` commands, backed by new `storage.archive_note(path, note_id)` and `storage.unarchive_note(path, note_id)` functions. Add an `archived` field to the Note model (default False). `storage.list_notes` should exclude archived notes unless called with `include_archived=True`; `notes list` should do the same by default and expose an `--all` flag that passes `include_archived=True`.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_05.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_05.py"
+  },
+  {
+    "id": "nc-06",
+    "repo": "notes-cli",
+    "type": "multi-file",
+    "title": "Export notes to CSV",
+    "description": "Add a `notes export <output_path>` command that writes all notes to a CSV file with columns id,title,body,tags,created_at (tags joined by ';'). This needs a new function in storage.py plus a new subcommand wired up in cli.py.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_nc_06.py passes.",
+    "hidden_test": "tasks/hidden_tests/notes-cli/test_nc_06.py"
+  },
+  {
+    "id": "inv-01",
+    "repo": "inventory-api",
+    "type": "bug",
+    "title": "Category filter is case-sensitive",
+    "description": "`GET /items?category=tools` returns nothing if items were stored with category 'Tools'. Category filtering should be case-insensitive.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_01.py"
+  },
+  {
+    "id": "inv-02",
+    "repo": "inventory-api",
+    "type": "bug",
+    "title": "max_price filter excludes items priced exactly at the boundary",
+    "description": "`GET /items?max_price=50` should include items priced at exactly $50.00, but they're currently being excluded. Fix the boundary condition.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_02.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_02.py"
+  },
+  {
+    "id": "inv-03",
+    "repo": "inventory-api",
+    "type": "bug",
+    "title": "Partial updates wipe out fields the caller didn't send",
+    "description": "`PUT /items/{id}` with a body of just `{\"quantity\": 5}` should only change quantity and leave name/category/price untouched. Right now the omitted fields get overwritten with null. Fix update_item so unspecified fields are preserved.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_03.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_03.py"
+  },
+  {
+    "id": "inv-04",
+    "repo": "inventory-api",
+    "type": "feature",
+    "title": "Support sort_by on the list endpoint",
+    "description": "`GET /items?sort_by=price` and `GET /items?sort_by=name` should return items sorted ascending by that field. The query param is currently accepted but ignored -- wire it up in db.list_items.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_04.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_04.py"
+  },
+  {
+    "id": "inv-05",
+    "repo": "inventory-api",
+    "type": "feature",
+    "title": "Add a restock endpoint",
+    "description": "Add `POST /items/{id}/restock` accepting a JSON body `{\"amount\": N}` that increments the item's quantity by N and returns the updated item. Amount is always a positive integer.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_05.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_05.py"
+  },
+  {
+    "id": "inv-06",
+    "repo": "inventory-api",
+    "type": "multi-file",
+    "title": "Add a low-stock endpoint",
+    "description": "Add `GET /items/low-stock?threshold=N` that returns all items with quantity <= N. This needs a new `low_stock_items` function in db.py and a new route wired up in wsgi.py (must be matched before the generic /items/{id} route).",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_inv_06.py passes.",
+    "hidden_test": "tasks/hidden_tests/inventory-api/test_inv_06.py"
+  },
+  {
+    "id": "sr-01",
+    "repo": "sales-report",
+    "type": "bug",
+    "title": "Refunds are being added instead of subtracted",
+    "description": "Category totals are inflated because refund rows (type='refund') are added to the category total the same way sale rows are. Refunds should reduce the category's net revenue.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_01.py"
+  },
+  {
+    "id": "sr-02",
+    "repo": "sales-report",
+    "type": "bug",
+    "title": "Monthly revenue merges the same month across different years",
+    "description": "compute_monthly_revenue keys its totals by month number only ('01', '02', ...), so January 2026 and January 2027 get merged into one bucket. Keys should be year-month, e.g. '2026-01'.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_02.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_02.py"
+  },
+  {
+    "id": "sr-03",
+    "repo": "sales-report",
+    "type": "bug",
+    "title": "Currency values round incorrectly near the half-cent",
+    "description": "format_currency uses Python's built-in round() on a float, which produces wrong results for values like 2.675 (should display as $2.68, a standard round-half-up, but shows $2.67 due to float representation error). Fix format_currency to round correctly regardless of float precision quirks.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_03.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_03.py"
+  },
+  {
+    "id": "sr-04",
+    "repo": "sales-report",
+    "type": "feature",
+    "title": "Add a top-N products function",
+    "description": "Add `top_n_products(transactions, n)` to aggregate.py, returning a list of (product, net_revenue) tuples for the top `n` products by net revenue (sales minus refunds), sorted descending.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_04.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_04.py"
+  },
+  {
+    "id": "sr-05",
+    "repo": "sales-report",
+    "type": "feature",
+    "title": "Add a date-range filter to the CLI",
+    "description": "Add `--start YYYY-MM-DD` and `--end YYYY-MM-DD` options to the sales-report CLI. When given, only transactions with date in [start, end] (inclusive) should be included in the report. Both flags are optional and independent.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_05.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_05.py"
+  },
+  {
+    "id": "sr-06",
+    "repo": "sales-report",
+    "type": "multi-file",
+    "title": "Add a category-by-month pivot to the report",
+    "description": "Add a function `pivot_category_month(transactions)` in aggregate.py returning a nested dict {category: {year_month: net_revenue}}, and render it as a new '=== Category by Month ===' section at the end of generate_report's output in report.py.",
+    "pass_condition": "Full existing test suite still passes AND tests/hidden/test_sr_06.py passes.",
+    "hidden_test": "tasks/hidden_tests/sales-report/test_sr_06.py"
+  }
+]
