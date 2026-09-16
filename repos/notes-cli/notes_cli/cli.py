@@ -19,9 +19,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_list = sub.add_parser("list", help="list notes")
     p_list.add_argument("--sort", choices=["date", "title"], default="date")
+    p_list.add_argument("--tag")
+    p_list.add_argument("--all", action="store_true", dest="include_archived")
 
     p_delete = sub.add_parser("delete", help="delete a note by id")
     p_delete.add_argument("id", type=int)
+
+    for name in ("archive", "unarchive"):
+        p_archive = sub.add_parser(name, help=f"{name} a note by id")
+        p_archive.add_argument("id", type=int)
+
+    p_export = sub.add_parser("export", help="export notes to CSV")
+    p_export.add_argument("output_path")
 
     p_search = sub.add_parser("search", help="search notes by title/body")
     p_search.add_argument("query")
@@ -45,7 +54,12 @@ def run(argv=None) -> int:
         return 0
 
     if args.command == "list":
-        notes = storage.list_notes(args.file, sort_by=args.sort)
+        notes = storage.list_notes(
+            args.file,
+            sort_by=args.sort,
+            tag=args.tag,
+            include_archived=args.include_archived,
+        )
         for note in notes:
             _print_note(note)
         return 0
@@ -59,6 +73,17 @@ def run(argv=None) -> int:
         notes = storage.search_notes(args.file, args.query)
         for note in notes:
             _print_note(note)
+        return 0
+
+    if args.command in ("archive", "unarchive"):
+        operation = storage.archive_note if args.command == "archive" else storage.unarchive_note
+        changed = operation(args.file, args.id)
+        print("Archived" if args.command == "archive" and changed else
+              "Unarchived" if args.command == "unarchive" and changed else "Not found")
+        return 0 if changed else 1
+
+    if args.command == "export":
+        storage.export_notes(args.file, args.output_path)
         return 0
 
     parser.print_help()
