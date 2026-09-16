@@ -10,6 +10,7 @@ class Note:
     body: str
     tags: List[str] = field(default_factory=list)
     created_at: str = ""  # ISO date string, e.g. "2026-07-23"
+    archived: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -22,4 +23,5 @@ class Note:
             body=data["body"],
             tags=data.get("tags", []),
             created_at=data.get("created_at", ""),
+            archived=data.get("archived", False),
         )

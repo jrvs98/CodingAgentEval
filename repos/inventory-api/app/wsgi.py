@@ -5,6 +5,7 @@ without a pip install step. Routes mirror what a Flask/FastAPI app would expose:
 
     POST   /items                 create an item
     GET    /items                 list items (?category=&min_price=&max_price=&sort_by=)
+    GET    /items/low-stock       list items at or below a quantity threshold
     GET    /items/{id}            fetch one item
     PUT    /items/{id}            update one item (partial body; omitted fields
                                    must be left unchanged)
@@ -17,6 +18,7 @@ from urllib.parse import parse_qs
 from . import db
 
 ITEM_ID_RE = re.compile(r"^/items/(\d+)$")
+ITEM_RESTOCK_RE = re.compile(r"^/items/(\d+)/restock$")
 
 
 def _json_response(status, payload):
@@ -47,6 +49,12 @@ class InventoryApp:
             return self.create_item(environ)
         if path == "/items" and method == "GET":
             return self.list_items(qs)
+        if path == "/items/low-stock" and method == "GET":
+            return self.low_stock_items(qs)
+
+        m = ITEM_RESTOCK_RE.match(path)
+        if m and method == "POST":
+            return self.restock_item(int(m.group(1)), environ)
 
         m = ITEM_ID_RE.match(path)
         if m:
@@ -89,6 +97,20 @@ class InventoryApp:
             sort_by=sort_by,
         )
         return _json_response("200 OK", items)
+
+    def low_stock_items(self, qs):
+        threshold = qs.get("threshold", [None])[0]
+        if threshold is None:
+            return _json_response("400 Bad Request", {"error": "missing threshold"})
+        items = db.low_stock_items(self.conn, int(threshold))
+        return _json_response("200 OK", items)
+
+    def restock_item(self, item_id, environ):
+        data = self._read_json_body(environ)
+        item = db.restock_item(self.conn, item_id, data["amount"])
+        if item is None:
+            return _json_response("404 Not Found", {"error": "not found"})
+        return _json_response("200 OK", item)
 
     def get_item(self, item_id):
         item = db.get_item(self.conn, item_id)
