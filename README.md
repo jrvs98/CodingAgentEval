@@ -13,12 +13,12 @@ just a vibe.
 ## Status
 
 Phase 0 is done: 3 toy codebases with seeded bugs, an 18-task scored set, and
-a working grading script. No agent exists yet, so there's nothing to report
-on pass rate, cost, or latency — that starts at Phase 1. This section gets
+a working grading script. Phase 1 now has a single-agent baseline runner; live
+scores are not claimed until it has been run with an API key. This section gets
 updated as each phase ships; no results are claimed here until they exist.
 
 - [x] **Phase 0** — Toy repos, 18-task set, hidden grading tests ([notes](docs/phase0.md))
-- [ ] **Phase 1** — Single-agent baseline (control group)
+- [x] **Phase 1** — Single-agent baseline runner ([notes](docs/phase1.md))
 - [ ] **Phase 2** — Eval harness v1 (pass rate / cost / latency report)
 - [ ] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic)
 - [ ] **Phase 4** — Adversarial tasks — break it on purpose, document failures
@@ -50,7 +50,10 @@ tasks/
   verify_task.py            run a task's grading check against its repo
 docs/
   phase0.md                 Phase 0 build notes, seeded-bug list, deviations
-eval/                    eval harness output (Phase 2+)
+eval/                    eval harness and Phase 1 output
+  agent.py                isolated single-agent loop and Anthropic adapter
+  run_baseline.py         CLI for one task or the full task set
+  test_agent.py           fake-client regression test (no API call)
 ```
 
 ## The task set
@@ -85,6 +88,12 @@ cd tasks && python3 verify_task.py nc-01
 
 # check all 18
 cd tasks && python3 verify_task.py --all
+
+# run the Phase 1 baseline for one task (requires ANTHROPIC_API_KEY)
+python3 -m eval.run_baseline --task nc-01
+
+# run all tasks and append JSONL metrics to eval/runs.jsonl
+python3 -m eval.run_baseline --task all
 ```
 
 ## Design decisions
