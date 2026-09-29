@@ -119,6 +119,31 @@ def _apply_diff(repo_dir: Path, diff: str, timeout: int) -> tuple[bool, str]:
     return result.returncode == 0, (result.stdout + result.stderr).strip()
 
 
+def _diff_metadata(diff: str) -> dict[str, Any]:
+    paths: list[str] = []
+    deleted_paths: list[str] = []
+    lines = diff.splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith("--- ") or index + 1 >= len(lines):
+            continue
+        old_path = line[4:].split("\t", 1)[0]
+        new_line = lines[index + 1]
+        if not new_line.startswith("+++ "):
+            continue
+        new_path = new_line[4:].split("\t", 1)[0]
+        if old_path != "/dev/null":
+            normalized = old_path.removeprefix("a/")
+            paths.append(normalized)
+            if new_path == "/dev/null":
+                deleted_paths.append(normalized)
+        elif new_path != "/dev/null":
+            paths.append(new_path.removeprefix("b/"))
+    return {
+        "changed_files": sorted(set(paths)),
+        "deleted_files": sorted(set(deleted_paths)),
+    }
+
+
 def _prompt(task: dict[str, Any], repo_dir: Path, feedback: str = "") -> str:
     retry = f"\nPrevious attempt feedback:\n{feedback}\n" if feedback else ""
     return f"""You are a coding agent working on a small Python repository.
@@ -149,6 +174,8 @@ def run_task(
     passed = False
     failure = ""
     iterations = 0
+    changed_files: set[str] = set()
+    deleted_files: set[str] = set()
 
     with tempfile.TemporaryDirectory(prefix=f"coding-agent-{task['id']}-") as temp_dir:
         repo_dir = Path(temp_dir) / task["repo"]
@@ -159,6 +186,9 @@ def run_task(
                 for key in usage:
                     usage[key] += int(model_usage.get(key, 0))
                 diff = _extract_diff(response)
+                diff_metadata = _diff_metadata(diff)
+                changed_files.update(diff_metadata["changed_files"])
+                deleted_files.update(diff_metadata["deleted_files"])
                 applied, patch_output = _apply_diff(repo_dir, diff, config.command_timeout)
                 if not applied:
                     failure = f"Patch rejected:\n{patch_output}"
@@ -191,6 +221,10 @@ def run_task(
             6,
         ),
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "changed_files": sorted(changed_files),
+        "deleted_files": sorted(deleted_files),
+        "tests_touched": any(path.startswith("tests/") for path in changed_files),
+        "tests_deleted": any(path.startswith("tests/") for path in deleted_files),
     }
     if failure:
         record["failure"] = failure[-4000:]

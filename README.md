@@ -19,7 +19,7 @@ updated as each phase ships; no results are claimed here until they exist.
 
 - [x] **Phase 0** — Toy repos, 18-task set, hidden grading tests ([notes](docs/phase0.md))
 - [x] **Phase 1** — Single-agent baseline runner ([notes](docs/phase1.md))
-- [ ] **Phase 2** — Eval harness v1 (pass rate / cost / latency report)
+- [x] **Phase 2** — Eval harness v1 (pass rate / cost / latency report) ([notes](docs/phase2.md))
 - [ ] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic)
 - [ ] **Phase 4** — Adversarial tasks — break it on purpose, document failures
 - [ ] **Phase 5** — Guardrails, fixes, before/after numbers
@@ -53,7 +53,9 @@ docs/
 eval/                    eval harness and Phase 1 output
   agent.py                isolated single-agent loop and Anthropic adapter
   run_baseline.py         CLI for one task or the full task set
+  report.py               JSONL aggregation and qualitative policy report
   test_agent.py           fake-client regression test (no API call)
+  test_report.py          report and policy-check regression tests
 ```
 
 ## The task set
@@ -94,6 +96,12 @@ python3 -m eval.run_baseline --task nc-01
 
 # run all tasks and append JSONL metrics to eval/runs.jsonl
 python3 -m eval.run_baseline --task all
+
+# summarize a run log as text
+python3 -m eval.report eval/runs.jsonl
+
+# emit the same report as machine-readable JSON
+python3 -m eval.report eval/runs.jsonl --json
 ```
 
 ## Design decisions
