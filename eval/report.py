@@ -48,7 +48,7 @@ def build_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         if record_violations:
             violations.append({"task_id": record.get("task_id"), "violations": record_violations})
     total_cost = sum(float(record.get("cost_usd", 0)) for record in records)
-    return {
+    report = {
         "runs": len(records),
         "passed": len(passed),
         "failed": len(records) - len(passed),
@@ -60,6 +60,13 @@ def build_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         "total_cost_usd": round(total_cost, 6),
         "qualitative_violations": violations,
     }
+    agents = sorted({record.get("agent", "unknown") for record in records})
+    if len(agents) > 1:
+        report["by_agent"] = {
+            agent: build_report([record for record in records if record.get("agent", "unknown") == agent])
+            for agent in agents
+        }
+    return report
 
 
 def _text_report(report: dict[str, Any]) -> str:

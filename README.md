@@ -20,7 +20,7 @@ updated as each phase ships; no results are claimed here until they exist.
 - [x] **Phase 0** — Toy repos, 18-task set, hidden grading tests ([notes](docs/phase0.md))
 - [x] **Phase 1** — Single-agent baseline runner ([notes](docs/phase1.md))
 - [x] **Phase 2** — Eval harness v1 (pass rate / cost / latency report) ([notes](docs/phase2.md))
-- [ ] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic)
+- [x] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic) ([notes](docs/phase3.md))
 - [ ] **Phase 4** — Adversarial tasks — break it on purpose, document failures
 - [ ] **Phase 5** — Guardrails, fixes, before/after numbers
 - [ ] **Phase 6** — Packaging (this README, architecture diagram, write-up)
@@ -54,8 +54,11 @@ eval/                    eval harness and Phase 1 output
   agent.py                isolated single-agent loop and Anthropic adapter
   run_baseline.py         CLI for one task or the full task set
   report.py               JSONL aggregation and qualitative policy report
+  multi_agent.py          Planner/Coder/Critic roles and orchestrator
+  run_multi_agent.py      CLI for the multi-agent runner
   test_agent.py           fake-client regression test (no API call)
   test_report.py          report and policy-check regression tests
+  test_multi_agent.py     multi-agent orchestration regression test
 ```
 
 ## The task set
@@ -94,6 +97,9 @@ cd tasks && python3 verify_task.py --all
 # run the Phase 1 baseline for one task (requires ANTHROPIC_API_KEY)
 python3 -m eval.run_baseline --task nc-01
 
+# use Gemini instead (requires GEMINI_API_KEY and google-genai)
+python3 -m eval.run_baseline --provider gemini --model gemini-3.8-flash --task nc-01
+
 # run all tasks and append JSONL metrics to eval/runs.jsonl
 python3 -m eval.run_baseline --task all
 
@@ -102,6 +108,12 @@ python3 -m eval.report eval/runs.jsonl
 
 # emit the same report as machine-readable JSON
 python3 -m eval.report eval/runs.jsonl --json
+
+# run the Phase 3 multi-agent version
+python3 -m eval.run_multi_agent --task nc-01
+
+# run Phase 3 with Gemini
+python3 -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash --task nc-01
 ```
 
 ## Design decisions

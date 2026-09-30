@@ -3,4 +3,7 @@ __pycache__/
 .pytest_cache/
 *.sqlite3
 .DS_Store
+.env
+.venv/
 eval/runs.jsonl
+eval/multi_agent_runs.jsonl

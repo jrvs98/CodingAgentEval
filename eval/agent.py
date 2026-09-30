@@ -20,6 +20,25 @@ class ModelClient(Protocol):
         """Return model text and provider usage fields."""
 
 
+def _load_local_env() -> None:
+    """Load simple KEY=VALUE entries from the project .env if present."""
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_local_env()
+
+
 class AnthropicClient:
     def __init__(self, model: str = "claude-sonnet-4-5") -> None:
         try:
@@ -43,6 +62,39 @@ class AnthropicClient:
             "output_tokens": getattr(response.usage, "output_tokens", 0),
         }
         return text, usage
+
+
+class GeminiClient:
+    def __init__(self, model: str = "gemini-3.8-flash") -> None:
+        try:
+            from google import genai
+        except ImportError as exc:
+            raise RuntimeError(
+                "Google Gen AI SDK is required for Gemini runs; install google-genai first"
+            ) from exc
+        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        self.model = model
+
+    def complete(self, prompt: str) -> tuple[str, dict[str, Any]]:
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+        metadata = getattr(response, "usage_metadata", None)
+        usage = {
+            "input_tokens": getattr(metadata, "prompt_token_count", 0),
+            "output_tokens": getattr(metadata, "candidates_token_count", 0),
+        }
+        return response.text or "", usage
+
+
+def create_client(provider: str, model: str | None = None) -> ModelClient:
+    """Create a provider client without exposing provider details to runners."""
+    if provider == "anthropic":
+        return AnthropicClient(model or "claude-sonnet-4-5")
+    if provider == "gemini":
+        return GeminiClient(model or "gemini-3.8-flash")
+    raise ValueError(f"unsupported provider: {provider}")
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from eval.agent import AgentConfig, run_task
+from eval.agent import AgentConfig, create_client, run_task
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +41,10 @@ class FakeClient:
 
 
 class AgentRunnerTests(unittest.TestCase):
+    def test_client_factory_rejects_unknown_provider(self):
+        with self.assertRaisesRegex(ValueError, "unsupported provider"):
+            create_client("unknown")
+
     def test_fake_client_solves_task_in_isolated_copy_and_logs_metrics(self):
         tasks = json.loads((ROOT / "tasks" / "tasks.json").read_text())
         task = next(task for task in tasks if task["id"] == "nc-01")
