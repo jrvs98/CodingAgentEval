@@ -32,6 +32,27 @@ class FakeRoleClient:
 
 
 class MultiAgentTests(unittest.TestCase):
+    def test_planner_error_is_recorded_instead_of_escaping(self):
+        class FailingClient:
+            def complete(self, prompt):
+                raise RuntimeError("provider unavailable")
+
+        tasks = json.loads((ROOT / "tasks" / "tasks.json").read_text())
+        task = next(task for task in tasks if task["id"] == "nc-01")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            record = run_task(
+                task,
+                ROOT / "repos",
+                FailingClient(),
+                FailingClient(),
+                FailingClient(),
+                MultiAgentConfig(max_iterations=1),
+                Path(temp_dir) / "runs.jsonl",
+            )
+        self.assertFalse(record["passed"])
+        self.assertEqual(record["failure_reason"], "agent_error")
+        self.assertIn("provider unavailable", record["failure"])
+
     def test_critic_rejects_patch_that_deletes_a_test(self):
         deleted_test = "--- a/tests/test_app.py\n+++ /dev/null\n@@ -1 +0,0 @@\n-test\n"
         approved, feedback, _ = Critic(FakeRoleClient("critic")).review(

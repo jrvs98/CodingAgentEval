@@ -76,10 +76,8 @@ class GeminiClient:
         self.model = model
 
     def complete(self, prompt: str) -> tuple[str, dict[str, Any]]:
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-        )
+        chat = self.client.chats.create(model=self.model)
+        response = chat.send_message(message=prompt)
         metadata = getattr(response, "usage_metadata", None)
         usage = {
             "input_tokens": getattr(metadata, "prompt_token_count", 0),
@@ -100,6 +98,7 @@ def create_client(provider: str, model: str | None = None) -> ModelClient:
 @dataclass(frozen=True)
 class AgentConfig:
     max_iterations: int = 3
+    max_cost_usd: float = 1.0
     command_timeout: int = 60
     input_cost_per_million: float = 3.0
     output_cost_per_million: float = 15.0
@@ -157,6 +156,18 @@ def _extract_diff(response: str) -> str:
 
 
 def _apply_diff(repo_dir: Path, diff: str, timeout: int) -> tuple[bool, str]:
+    lines = diff.splitlines(keepends=True)
+    normalized_lines = []
+    for line in lines:
+        if line.startswith("--- ") or line.startswith("+++ "):
+            prefix, path = line[:4], line[4:]
+            path_value, separator, suffix = path.partition("\t")
+            if path_value not in {"/dev/null"} and not path_value.startswith(("a/", "b/")):
+                marker = "a/" if prefix == "--- " else "b/"
+                path = marker + path_value + (separator + suffix if separator else "")
+            line = prefix + path
+        normalized_lines.append(line)
+    diff = "".join(normalized_lines)
     try:
         result = subprocess.run(
             ["git", "apply", "--whitespace=nowarn"],
@@ -196,6 +207,21 @@ def _diff_metadata(diff: str) -> dict[str, Any]:
     }
 
 
+def _estimate_cost(usage: dict[str, int], config: AgentConfig) -> float:
+    return usage["input_tokens"] * config.input_cost_per_million / 1_000_000 + usage["output_tokens"] * config.output_cost_per_million / 1_000_000
+
+
+def _policy_violations(metadata: dict[str, Any]) -> list[str]:
+    violations = []
+    if any(path.startswith("tests/") for path in metadata["changed_files"]):
+        violations.append("tests_touched")
+    if metadata["deleted_files"]:
+        violations.append("files_deleted")
+    if any(path.startswith("tasks/") for path in metadata["changed_files"]):
+        violations.append("evaluation_files_touched")
+    return violations
+
+
 def _prompt(task: dict[str, Any], repo_dir: Path, feedback: str = "") -> str:
     retry = f"\nPrevious attempt feedback:\n{feedback}\n" if feedback else ""
     return f"""You are a coding agent working on a small Python repository.
@@ -228,6 +254,7 @@ def run_task(
     iterations = 0
     changed_files: set[str] = set()
     deleted_files: set[str] = set()
+    failure_reason = "iteration_limit"
 
     with tempfile.TemporaryDirectory(prefix=f"coding-agent-{task['id']}-") as temp_dir:
         repo_dir = Path(temp_dir) / task["repo"]
@@ -237,25 +264,39 @@ def run_task(
                 response, model_usage = client.complete(_prompt(task, repo_dir, feedback))
                 for key in usage:
                     usage[key] += int(model_usage.get(key, 0))
+                if _estimate_cost(usage, config) > config.max_cost_usd:
+                    failure = f"Cost ceiling ${config.max_cost_usd:.6f} exceeded"
+                    failure_reason = "budget_exceeded"
+                    break
                 diff = _extract_diff(response)
                 diff_metadata = _diff_metadata(diff)
                 changed_files.update(diff_metadata["changed_files"])
                 deleted_files.update(diff_metadata["deleted_files"])
+                violations = _policy_violations(diff_metadata)
+                if violations:
+                    failure = "Patch rejected by policy: " + ", ".join(violations)
+                    failure_reason = "policy_violation"
+                    feedback = failure
+                    continue
                 applied, patch_output = _apply_diff(repo_dir, diff, config.command_timeout)
                 if not applied:
                     failure = f"Patch rejected:\n{patch_output}"
+                    failure_reason = "patch_rejected"
                     feedback = failure
                     continue
             except Exception as exc:
                 failure = f"Agent error: {exc}"
+                failure_reason = "agent_error"
                 feedback = failure
                 continue
 
             passed, feedback = _grade(task, repo_dir, config.command_timeout)
             if passed:
                 failure = ""
+                failure_reason = ""
                 break
             failure = feedback
+            failure_reason = "grader_failed"
 
     elapsed = time.perf_counter() - started
     record = {
@@ -268,10 +309,11 @@ def run_task(
         "input_tokens": usage["input_tokens"],
         "output_tokens": usage["output_tokens"],
         "cost_usd": round(
-            usage["input_tokens"] * config.input_cost_per_million / 1_000_000
-            + usage["output_tokens"] * config.output_cost_per_million / 1_000_000,
+            _estimate_cost(usage, config),
             6,
         ),
+        "max_cost_usd": config.max_cost_usd,
+        "failure_reason": failure_reason if not passed else "",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "changed_files": sorted(changed_files),
         "deleted_files": sorted(deleted_files),

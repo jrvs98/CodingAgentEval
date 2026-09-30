@@ -141,40 +141,74 @@ def run_task(
     passed = False
     approved = False
     iterations = 0
+    failure_reason = "iteration_limit"
 
     with tempfile.TemporaryDirectory(prefix=f"multi-agent-{task['id']}-") as temp_dir:
         repo_dir = Path(temp_dir) / task["repo"]
         shutil.copytree(source_root / task["repo"], repo_dir)
-        plan, plan_usage = Planner(planner_client).plan(task, repo_dir)
-        for key in usage:
-            usage[key] += int(plan_usage.get(key, 0))
-        for iterations in range(1, config.max_iterations + 1):
-            try:
-                response, coder_usage = Coder(coder_client).code(task, repo_dir, plan, feedback)
-                for key in usage:
-                    usage[key] += int(coder_usage.get(key, 0))
-                diff = _extract_diff(response)
-                metadata = _diff_metadata(diff)
-                changed_files.update(metadata["changed_files"])
-                deleted_files.update(metadata["deleted_files"])
-                applied, patch_output = _apply_diff(repo_dir, diff, config.command_timeout)
-                if not applied:
-                    failure = f"Patch rejected:\n{patch_output}"
+        try:
+            plan, plan_usage = Planner(planner_client).plan(task, repo_dir)
+            for key in usage:
+                usage[key] += int(plan_usage.get(key, 0))
+        except Exception as exc:
+            plan = ""
+            failure = f"Planner error: {exc}"
+            failure_reason = "agent_error"
+            plan_usage = {}
+        if failure:
+            pass
+        elif sum((usage["input_tokens"] * config.input_cost_per_million, usage["output_tokens"] * config.output_cost_per_million)) / 1_000_000 > config.max_cost_usd:
+            failure = f"Cost ceiling ${config.max_cost_usd:.6f} exceeded during planning"
+            failure_reason = "budget_exceeded"
+        else:
+            for iterations in range(1, config.max_iterations + 1):
+                try:
+                    response, coder_usage = Coder(coder_client).code(task, repo_dir, plan, feedback)
+                    for key in usage:
+                        usage[key] += int(coder_usage.get(key, 0))
+                    from .agent import _estimate_cost, _policy_violations
+                    if _estimate_cost(usage, config) > config.max_cost_usd:
+                        failure = f"Cost ceiling ${config.max_cost_usd:.6f} exceeded"
+                        failure_reason = "budget_exceeded"
+                        break
+                    diff = _extract_diff(response)
+                    metadata = _diff_metadata(diff)
+                    changed_files.update(metadata["changed_files"])
+                    deleted_files.update(metadata["deleted_files"])
+                    violations = _policy_violations(metadata)
+                    if violations:
+                        failure = "Patch rejected by policy: " + ", ".join(violations)
+                        failure_reason = "policy_violation"
+                        feedback = failure
+                        continue
+                    applied, patch_output = _apply_diff(repo_dir, diff, config.command_timeout)
+                    if not applied:
+                        failure = f"Patch rejected:\n{patch_output}"
+                        failure_reason = "patch_rejected"
+                        feedback = failure
+                        continue
+                    passed, grade_output = _grade(task, repo_dir, config.command_timeout)
+                    approved, feedback, critic_usage = Critic(critic_client).review(
+                        task, repo_dir, diff, grade_output, passed
+                    )
+                    for key in usage:
+                        usage[key] += int(critic_usage.get(key, 0))
+                    if _estimate_cost(usage, config) > config.max_cost_usd:
+                        failure = f"Cost ceiling ${config.max_cost_usd:.6f} exceeded"
+                        failure_reason = "budget_exceeded"
+                        break
+                    if approved:
+                        failure = ""
+                        failure_reason = ""
+                        break
+                    failure = feedback
+                    failure_reason = "policy_violation" if violations else (
+                        "critic_rejected" if passed else "grader_failed"
+                    )
+                except Exception as exc:
+                    failure = f"Agent error: {exc}"
+                    failure_reason = "agent_error"
                     feedback = failure
-                    continue
-                passed, grade_output = _grade(task, repo_dir, config.command_timeout)
-                approved, feedback, critic_usage = Critic(critic_client).review(
-                    task, repo_dir, diff, grade_output, passed
-                )
-                for key in usage:
-                    usage[key] += int(critic_usage.get(key, 0))
-                if approved:
-                    failure = ""
-                    break
-                failure = feedback
-            except Exception as exc:
-                failure = f"Agent error: {exc}"
-                feedback = failure
 
     elapsed = time.perf_counter() - started
     record = {
@@ -187,10 +221,11 @@ def run_task(
         "input_tokens": usage["input_tokens"],
         "output_tokens": usage["output_tokens"],
         "cost_usd": round(
-            usage["input_tokens"] * config.input_cost_per_million / 1_000_000
-            + usage["output_tokens"] * config.output_cost_per_million / 1_000_000,
+            sum((usage["input_tokens"] * config.input_cost_per_million, usage["output_tokens"] * config.output_cost_per_million)) / 1_000_000,
             6,
         ),
+        "max_cost_usd": config.max_cost_usd,
+        "failure_reason": failure_reason if not (passed and approved) else "",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "changed_files": sorted(changed_files),
         "deleted_files": sorted(deleted_files),

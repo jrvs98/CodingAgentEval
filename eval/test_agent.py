@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from eval.agent import AgentConfig, create_client, run_task
+from eval.agent import AgentConfig, _apply_diff, create_client, run_task
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +41,42 @@ class FakeClient:
 
 
 class AgentRunnerTests(unittest.TestCase):
+    def test_plain_repository_paths_are_accepted_in_diffs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / "app").mkdir()
+            (repo / "app" / "value.py").write_text("VALUE = 1\n")
+            applied, output = _apply_diff(
+                repo,
+                "--- app/value.py\n+++ app/value.py\n@@ -1 +1 @@\n-VALUE = 1\n+VALUE = 2\n",
+                10,
+            )
+            self.assertTrue(applied, output)
+            self.assertEqual((repo / "app" / "value.py").read_text(), "VALUE = 2\n")
+
+    def test_cost_ceiling_stops_before_patch_application(self):
+        class ExpensiveClient:
+            calls = 0
+
+            def complete(self, prompt):
+                self.calls += 1
+                return "not applied", {"input_tokens": 1_000_000, "output_tokens": 0}
+
+        client = ExpensiveClient()
+        tasks = json.loads((ROOT / "tasks" / "tasks.json").read_text())
+        task = next(task for task in tasks if task["id"] == "nc-01")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            record = run_task(
+                task,
+                ROOT / "repos",
+                client,
+                AgentConfig(max_iterations=3, max_cost_usd=0.01),
+                Path(temp_dir) / "runs.jsonl",
+            )
+        self.assertEqual(client.calls, 1)
+        self.assertFalse(record["passed"])
+        self.assertEqual(record["failure_reason"], "budget_exceeded")
+
     def test_client_factory_rejects_unknown_provider(self):
         with self.assertRaisesRegex(ValueError, "unsupported provider"):
             create_client("unknown")

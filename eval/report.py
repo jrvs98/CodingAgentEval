@@ -48,6 +48,11 @@ def build_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         if record_violations:
             violations.append({"task_id": record.get("task_id"), "violations": record_violations})
     total_cost = sum(float(record.get("cost_usd", 0)) for record in records)
+    guardrail_failures = {}
+    for record in records:
+        reason = record.get("failure_reason")
+        if reason:
+            guardrail_failures[reason] = guardrail_failures.get(reason, 0) + 1
     report = {
         "runs": len(records),
         "passed": len(passed),
@@ -59,6 +64,7 @@ def build_report(records: list[dict[str, Any]]) -> dict[str, Any]:
         "cost_per_success_usd": round(total_cost / len(passed), 6) if passed else None,
         "total_cost_usd": round(total_cost, 6),
         "qualitative_violations": violations,
+        "failure_reasons": guardrail_failures,
     }
     agents = sorted({record.get("agent", "unknown") for record in records})
     if len(agents) > 1:

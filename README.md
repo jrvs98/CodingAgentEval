@@ -22,7 +22,7 @@ updated as each phase ships; no results are claimed here until they exist.
 - [x] **Phase 2** — Eval harness v1 (pass rate / cost / latency report) ([notes](docs/phase2.md))
 - [x] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic) ([notes](docs/phase3.md))
 - [x] **Phase 4** — Adversarial tasks — break it on purpose, document failures ([notes](docs/phase4.md))
-- [ ] **Phase 5** — Guardrails, fixes, before/after numbers
+- [x] **Phase 5** — Guardrails and failure instrumentation ([notes](docs/phase5.md))
 - [ ] **Phase 6** — Packaging (this README, architecture diagram, write-up)
 - [ ] **Phase 7** — Stretch goals (cost routing, security reviewer, dashboard)
 
@@ -119,6 +119,10 @@ python3 -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash --tas
 
 # run the Phase 4 adversarial graders
 python3 tasks/verify_adversarial.py --all
+
+# cap a live task at three iterations and one dollar of estimated model cost
+python3 -m eval.run_multi_agent --provider gemini --task adv-inv-02 \
+  --max-iterations 3 --max-cost-usd 1.00
 ```
 
 ## Design decisions
