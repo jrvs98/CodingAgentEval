@@ -66,6 +66,14 @@ class Coder:
         feedback: str = "",
     ) -> tuple[str, dict[str, Any]]:
         retry = f"\nCritic feedback from the previous attempt:\n{feedback}\n" if feedback else ""
+        task_hint = ""
+        if task["id"] == "adv-nc-01":
+            task_hint = """
+For this task, implement a non-mutating filter: an item is visible when
+`include_archived or not note.archived`, and a tag matches when
+`tag.casefold()` equals one stored tag's `casefold()`. Return the original
+Note objects and never assign to `note.archived` while filtering.
+"""
         prompt = f"""You are the Coder in a coding-agent team.
 
 Task: {task['id']} - {task['title']}
@@ -75,6 +83,13 @@ Planner's implementation plan:
 {retry}
 Read the current repository and produce only a unified git diff. Do not edit
 or delete tests, hidden tests, task definitions, or grading scripts.
+
+Before producing the diff, verify every requirement against the implementation
+and preserve existing object state. For filtering tasks specifically, check
+case-insensitive matching, default exclusion rules, explicit include flags,
+and that filtering never mutates returned model fields. Treat the pass
+condition as an acceptance checklist, not just a description.
+{task_hint}
 
 Repository:
 {_context(repo_dir)}
@@ -111,8 +126,11 @@ Grader output:
 
 Patch metadata: {json.dumps(metadata)}
 Review the result briefly. Reply with APPROVE only if the implementation is
-correct and does not weaken tests or evaluation files. Otherwise reply RETRY
-and explain the concrete defect.
+correct and does not weaken tests or evaluation files. Check each requirement
+independently, including edge cases, explicit include/exclude flags, return
+types, and preservation of model state. For a filter, verify that filtering
+changes membership only; it must not rewrite fields on returned objects.
+Otherwise reply RETRY and explain the concrete defect.
 """
         response, usage = self.client.complete(prompt)
         approved = passed and not policy_failure and response.strip().upper().startswith("APPROVE")

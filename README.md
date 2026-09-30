@@ -99,8 +99,8 @@ cd tasks && python3 verify_task.py --all
 # run the Phase 1 baseline for one task (requires ANTHROPIC_API_KEY)
 python3 -m eval.run_baseline --task nc-01
 
-# use Gemini instead (requires GEMINI_API_KEY and google-genai)
-python3 -m eval.run_baseline --provider gemini --model gemini-3.8-flash --task nc-01
+# run with Gemini (requires GEMINI_API_KEY and google-genai)
+python3 -m eval.run_baseline --provider gemini --model gemini-3.5-flash-lite --task nc-01
 
 # run all tasks and append JSONL metrics to eval/runs.jsonl
 python3 -m eval.run_baseline --task all
@@ -115,13 +115,13 @@ python3 -m eval.report eval/runs.jsonl --json
 python3 -m eval.run_multi_agent --task nc-01
 
 # run Phase 3 with Gemini
-python3 -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash --task nc-01
+python3 -m eval.run_multi_agent --provider gemini --model gemini-3.5-flash-lite --task nc-01
 
 # run the Phase 4 adversarial graders
 python3 tasks/verify_adversarial.py --all
 
 # cap a live task at three iterations and one dollar of estimated model cost
-python3 -m eval.run_multi_agent --provider gemini --task adv-inv-02 \
+python3 -m eval.run_multi_agent --provider github --model openai/gpt-4.1 --task adv-inv-02 \
   --max-iterations 3 --max-cost-usd 1.00
 ```
 

@@ -26,10 +26,10 @@ python3 -m eval.report eval/multi_agent_runs.jsonl --json
 Run the adversarial set through both configurations for a comparable report:
 
 ```
-./.venv/bin/python -m eval.run_baseline --provider gemini --model gemini-3.8-flash \
+./.venv/bin/python -m eval.run_baseline --provider gemini --model gemini-3.5-flash-lite \
   --tasks-file tasks/adversarial_tasks.json --task all \
   --max-iterations 3 --max-cost-usd 1.00 --log /tmp/phase5-baseline.jsonl
-./.venv/bin/python -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash \
+./.venv/bin/python -m eval.run_multi_agent --provider gemini --model gemini-3.5-flash-lite \
   --tasks-file tasks/adversarial_tasks.json --task all \
   --max-iterations 3 --max-cost-usd 1.00 --log /tmp/phase5-multi.jsonl
 cat /tmp/phase5-baseline.jsonl /tmp/phase5-multi.jsonl > /tmp/phase5-combined.jsonl

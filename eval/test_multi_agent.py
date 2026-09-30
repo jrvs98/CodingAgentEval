@@ -32,6 +32,22 @@ class FakeRoleClient:
 
 
 class MultiAgentTests(unittest.TestCase):
+    def test_coder_prompt_calls_out_state_preservation(self):
+        class RecordingClient:
+            prompt = ""
+
+            def complete(self, prompt):
+                self.prompt = prompt
+                return "plan", {}
+
+        from eval.multi_agent import Coder
+
+        client = RecordingClient()
+        task = {"id": "x", "title": "filter", "description": "filter", "pass_condition": "pass"}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            Coder(client).code(task, Path(temp_dir), "1. inspect")
+        self.assertIn("never mutates returned model fields", client.prompt)
+
     def test_planner_error_is_recorded_instead_of_escaping(self):
         class FailingClient:
             def complete(self, prompt):

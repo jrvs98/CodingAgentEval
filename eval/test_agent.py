@@ -41,6 +41,16 @@ class FakeClient:
 
 
 class AgentRunnerTests(unittest.TestCase):
+    def test_diff_extractor_accepts_non_diff_fence_labels(self):
+        from eval.agent import _extract_diff
+
+        response = "```text\n--- app/value.py\n+++ app/value.py\n@@ -1 +1 @@\n-VALUE = 1\n+VALUE = 2\n```"
+        self.assertTrue(_extract_diff(response).startswith("--- app/value.py"))
+
+    def test_github_provider_is_supported(self):
+        self.assertEqual(type(create_client).__name__, "function")
+        self.assertIn("GitHubModelsClient", create_client.__globals__)
+
     def test_plain_repository_paths_are_accepted_in_diffs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo = Path(temp_dir)

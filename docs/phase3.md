@@ -22,12 +22,11 @@ python3 -m eval.run_multi_agent --task nc-01
 python3 -m eval.run_multi_agent --task all
 ```
 
-The CLI defaults to Anthropic, but supports Gemini for all three roles:
+The CLI defaults to Gemini:
 
 ```
 python3 -m pip install google-genai
-export GEMINI_API_KEY="your-key"
-python3 -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash --task all
+python3 -m eval.run_multi_agent --provider gemini --model gemini-3.5-flash-lite --task all
 ```
 
 The role interfaces accept separate clients, so model routing can be measured

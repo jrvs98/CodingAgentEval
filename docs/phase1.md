@@ -15,16 +15,15 @@ export ANTHROPIC_API_KEY=...
 python3 -m eval.run_baseline --task nc-01
 ```
 
-Gemini is also supported through Google's Gen AI SDK:
+Gemini is supported through Google's Gen AI SDK:
 
 ```
 python3 -m pip install google-genai
 export GEMINI_API_KEY=...
-python3 -m eval.run_baseline --provider gemini --model gemini-3.8-flash --task nc-01
+python3 -m eval.run_baseline --provider gemini --model gemini-3.5-flash-lite --task nc-01
 ```
 
-API keys are read from environment variables and are never written to run
-logs.
+Credentials are read from the environment and are never written to run logs.
 
 Use `--task all` for the full 18-task control group. `--max-iterations` caps
 retries, and `--log` changes the JSONL output path.

@@ -15,7 +15,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", default="all", help="task id or 'all'")
     parser.add_argument("--tasks-file", type=Path, default=ROOT / "tasks" / "tasks.json")
-    parser.add_argument("--provider", choices=["anthropic", "gemini"], default="anthropic")
+    parser.add_argument("--provider", choices=["anthropic", "gemini", "github", "copilot"], default="gemini")
     parser.add_argument("--model", help="provider model name")
     parser.add_argument("--max-iterations", type=int, default=3)
     parser.add_argument("--max-cost-usd", type=float, default=1.0)

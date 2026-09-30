@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -65,7 +67,7 @@ class AnthropicClient:
 
 
 class GeminiClient:
-    def __init__(self, model: str = "gemini-3.8-flash") -> None:
+    def __init__(self, model: str = "gemini-3.5-flash-lite") -> None:
         try:
             from google import genai
         except ImportError as exc:
@@ -86,12 +88,72 @@ class GeminiClient:
         return response.text or "", usage
 
 
+class GitHubModelsClient:
+    """Client for GitHub Models, the supported GitHub-hosted inference API."""
+
+    def __init__(self, model: str = "openai/gpt-4.1") -> None:
+        self.model = model
+        self.token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if not self.token:
+            try:
+                result = subprocess.run(
+                    ["gh", "auth", "token"], capture_output=True, text=True, check=True
+                )
+            except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+                raise RuntimeError(
+                    "GitHub Models requires GITHUB_TOKEN, GH_TOKEN, or an authenticated gh CLI"
+                ) from exc
+            self.token = result.stdout.strip()
+        if not self.token:
+            raise RuntimeError("GitHub authentication returned an empty token")
+
+    def complete(self, prompt: str) -> tuple[str, dict[str, Any]]:
+        payload = json.dumps({
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8000,
+        }).encode()
+        request = urllib.request.Request(
+            "https://models.github.ai/inference/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                raw_body = response.read().decode(errors="replace")
+                try:
+                    body = json.loads(raw_body)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(
+                        "GitHub Models returned a non-JSON response "
+                        f"(HTTP {response.status}, content-type={response.headers.get('Content-Type', 'unknown')}); "
+                        "check GitHub Models access for this account"
+                    ) from exc
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode(errors="replace")
+            raise RuntimeError(f"GitHub Models request failed ({exc.code}): {detail}") from exc
+        choice = body.get("choices", [{}])[0]
+        message = choice.get("message", {})
+        usage = body.get("usage", {})
+        return message.get("content", ""), {
+            "input_tokens": usage.get("prompt_tokens", 0),
+            "output_tokens": usage.get("completion_tokens", 0),
+        }
+
+
 def create_client(provider: str, model: str | None = None) -> ModelClient:
     """Create a provider client without exposing provider details to runners."""
     if provider == "anthropic":
         return AnthropicClient(model or "claude-sonnet-4-5")
     if provider == "gemini":
-        return GeminiClient(model or "gemini-3.8-flash")
+        return GeminiClient(model or "gemini-3.5-flash-lite")
+    if provider in {"github", "github-models", "copilot"}:
+        return GitHubModelsClient(model or "openai/gpt-4.1")
     raise ValueError(f"unsupported provider: {provider}")
 
 
@@ -147,11 +209,13 @@ def _context(repo_dir: Path) -> str:
 
 
 def _extract_diff(response: str) -> str:
-    match = re.search(r"```(?:diff|patch)?\s*\n(.*?)```", response, re.DOTALL)
-    if match:
-        return match.group(1).strip() + "\n"
-    if response.lstrip().startswith(("diff --git", "--- ")):
-        return response.strip() + "\n"
+    for match in re.finditer(r"```[^\n]*\n(.*?)```", response, re.DOTALL):
+        candidate = match.group(1).strip()
+        if candidate.startswith(("diff --git", "--- ")):
+            return candidate + "\n"
+    stripped = response.strip()
+    if stripped.startswith(("diff --git", "--- ")):
+        return stripped + "\n"
     raise ValueError("model response did not contain a unified diff")
 
 
