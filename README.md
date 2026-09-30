@@ -21,7 +21,7 @@ updated as each phase ships; no results are claimed here until they exist.
 - [x] **Phase 1** — Single-agent baseline runner ([notes](docs/phase1.md))
 - [x] **Phase 2** — Eval harness v1 (pass rate / cost / latency report) ([notes](docs/phase2.md))
 - [x] **Phase 3** — Multi-agent architecture (Planner / Coder / Critic) ([notes](docs/phase3.md))
-- [ ] **Phase 4** — Adversarial tasks — break it on purpose, document failures
+- [x] **Phase 4** — Adversarial tasks — break it on purpose, document failures ([notes](docs/phase4.md))
 - [ ] **Phase 5** — Guardrails, fixes, before/after numbers
 - [ ] **Phase 6** — Packaging (this README, architecture diagram, write-up)
 - [ ] **Phase 7** — Stretch goals (cost routing, security reviewer, dashboard)
@@ -46,8 +46,10 @@ repos/                  toy codebases the agent operates on
   sales-report/           CSV sales data pipeline
 tasks/
   tasks.json               18 scored tasks: id, repo, description, pass condition
+  adversarial_tasks.json   6 Phase 4 stress tasks
   hidden_tests/<repo>/      one grading test per task -- not shown to the agent
   verify_task.py            run a task's grading check against its repo
+  verify_adversarial.py    run the Phase 4 adversarial grading set
 docs/
   phase0.md                 Phase 0 build notes, seeded-bug list, deviations
 eval/                    eval harness and Phase 1 output
@@ -114,6 +116,9 @@ python3 -m eval.run_multi_agent --task nc-01
 
 # run Phase 3 with Gemini
 python3 -m eval.run_multi_agent --provider gemini --model gemini-3.8-flash --task nc-01
+
+# run the Phase 4 adversarial graders
+python3 tasks/verify_adversarial.py --all
 ```
 
 ## Design decisions

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "adv-nc-01",
+    "repo": "notes-cli",
+    "type": "adversarial",
+    "title": "Tag filtering is case-insensitive",
+    "description": "Extend notes list tag filtering so a query of 'WORK' matches a note tagged 'work'. Preserve the existing behavior that archived notes remain hidden unless include_archived=True, and do not change the list_notes return type.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_nc_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_nc_01.py"
+  },
+  {
+    "id": "adv-inv-01",
+    "repo": "inventory-api",
+    "type": "adversarial",
+    "title": "Reject unknown item sort fields",
+    "description": "GET /items?sort_by=<value> must return 400 Bad Request for any value other than 'name' or 'price'. Valid sort fields must keep their existing ascending behavior and the response must remain JSON.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_inv_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_inv_01.py"
+  },
+  {
+    "id": "adv-inv-02",
+    "repo": "inventory-api",
+    "type": "adversarial",
+    "title": "Restock rejects non-positive amounts",
+    "description": "POST /items/{id}/restock must reject zero, negative, boolean, and non-integer amounts with 400 Bad Request without changing the stored quantity. Positive integers must retain the existing 200 response and increment behavior.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_inv_02.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_inv_02.py"
+  },
+  {
+    "id": "adv-sr-01",
+    "repo": "sales-report",
+    "type": "adversarial",
+    "title": "Top-N ties are deterministic",
+    "description": "Update top_n_products so products are ordered by net revenue descending, then product name ascending when net revenue ties. Keep the return type as a list of (product, net_revenue) tuples.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_sr_01.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_sr_01.py"
+  },
+  {
+    "id": "adv-sr-02",
+    "repo": "sales-report",
+    "type": "adversarial",
+    "title": "Date-range arguments are validated",
+    "description": "The sales-report CLI must reject malformed --start/--end dates and reject a range where start is after end with a non-zero exit. Valid ISO dates remain inclusive and keep the existing report output.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_sr_02.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_sr_02.py"
+  },
+  {
+    "id": "adv-sr-03",
+    "repo": "sales-report",
+    "type": "adversarial",
+    "title": "Reject unknown transaction types",
+    "description": "The CSV loader must raise ValueError with a useful message when a transaction type is neither 'sale' nor 'refund'. Valid rows must load unchanged and existing aggregation behavior must remain intact.",
+    "pass_condition": "Full existing test suite still passes AND tasks/hidden_tests/adversarial/test_adv_sr_03.py passes.",
+    "hidden_test": "tasks/hidden_tests/adversarial/test_adv_sr_03.py"
+  }
+]
